@@ -1,31 +1,43 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
   <head>
-    <meta charset="utf-8">
-    <style>
-      .input_video {
-        display: none;
-        /* Oculta el elemento de video */
-      }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media pipe with teachable machine</title>
     <script type="module" src="/src/renderer.ts"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <style>
+      .input_video {
+        display: none;
+        /* Oculta el elemento de video */
+      }
+      .webcam-container {
+        display: none;
+      }
+    </style>
   </head>
 
   <body>
-    <div class="container">
-      <video class="input_video"></video>
-      <canvas class="output_canvas" width="1280px" height="720px"></canvas>
-    </div>
+    <div>Teachable Machine Image Model</div>
+    <button type="button" onclick="init()">Start</button>
+    <div id="webcam-container"></div>
+    <div id="label-container"></div>
+    <!-- MEDIA PIPE -->
+    <video class="input_video"></video>
+    <canvas class="output_canvas" width="1280px" height="720px"></canvas>
   </body>
 
 </html>
 
-<script type="module">
+<script type="text/javascript">
+  // media pipe setup
   const videoElement=document.getElementsByClassName('input_video')[0]
   const canvasElement=document.getElementsByClassName('output_canvas')[0]
   const canvasCtx=canvasElement.getContext('2d')
@@ -58,7 +70,7 @@
     }
   })
   hands.setOptions({
-    maxNumHands: 2,
+    maxNumHands: 1,
     modelComplexity: 1,
     minDetectionConfidence: 0.5,
     minTrackingConfidence: 0.5
@@ -72,5 +84,62 @@
     width: 1280,
     height: 720
   })
-  camera.start();
+  camera.start()
+
+
+  // More API functions here:
+  // https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
+
+  // the link to your model provided by Teachable Machine export panel
+  const URL="https://teachablemachine.withgoogle.com/models/RBtRBRSOy/"
+
+  let
+    model,
+    webcam,
+    labelContainer,
+    maxPredictions
+
+  // Load the image model and setup the webcam
+  async function init() {
+    const modelURL=URL+"model.json"
+    const metadataURL=URL+"metadata.json"
+
+    // load the model and metadata
+    // Refer to tmImage.loadFromFiles() in the API to support files from a file picker
+    // or files from your local hard drive
+    // Note: the pose library adds "tmImage" object to your window (window.tmImage)
+    model=await tmImage.load(modelURL,metadataURL)
+    maxPredictions=model.getTotalClasses()
+
+    // Convenience function to setup a webcam
+    // const flip=true // whether to flip the webcam
+    // webcam=new tmImage.Webcam(1280,720,flip) // width, height, flip
+    // await webcam.setup() // request access to the webcam
+    // await webcam.play()
+    window.requestAnimationFrame(loop)
+
+    // append elements to the DOM
+    // document.getElementById("webcam-container").appendChild(webcam.canvas)
+    labelContainer=document.getElementById("label-container")
+    for(let i=0;i<maxPredictions;i++) { // and class labels
+      labelContainer.appendChild(document.createElement("div"))
+    }
+  }
+
+  async function loop() {
+    // webcam.update() // update the webcam frame
+    await predict()
+    window.requestAnimationFrame(loop)
+  }
+
+  // run the webcam image through the image model
+  async function predict() {
+    // predict can take in an image, video or canvas html element
+    const prediction=await model.predict(canvasElement)
+    for(let i=0;i<maxPredictions;i++) {
+      const classPrediction=
+        prediction[i].className+": "+prediction[i].probability.toFixed(2)
+      labelContainer.childNodes[i].innerHTML=classPrediction
+    }
+  }
 </script>
